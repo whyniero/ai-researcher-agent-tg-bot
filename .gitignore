@@ -12,3 +12,4 @@ wheels/
 .env
 docker-compose.yml
 search_results.csv
+.idea
