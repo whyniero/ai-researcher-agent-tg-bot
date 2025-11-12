@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+.env
+docker-compose.yml
+search_results.csv
