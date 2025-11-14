@@ -80,16 +80,15 @@ tools = [
 
 
 def web_search(query: str, count: int):
-    search_results = GoogleSearch().get_search_results(query="new york hotels", count=count)
+    search_results = GoogleSearch().get_search_results(query=query, count=count)
     return search_results
 
 
-filter_web_search = ""
-results = ""
-web_search_results = None
-
 if __name__ == "__main__":
-    # asyncio.run(main())
+    filter_web_search = ""
+    results = ""
+    web_search_results = None
+
     user_query: str = input("Поиск: ")
     input_list = [
         {"role": "user", "content": user_query}
@@ -117,16 +116,15 @@ if __name__ == "__main__":
     # df = pandas.DataFrame(web_search_results)
     # df.to_csv("results.csv", index=False)
     for wsr in web_search_results:
-        prompt += (f"Title: {wsr['title']}\n"
-                   f"Link: {wsr['link']}\n"
-                   f"Snippet: {wsr['snippet']}\n\n")
+        prompt += (f"Заголовок: {wsr['title']}\n"
+                   f"Ссылка: {wsr['link']}\n"
+                   f"Фрагмент: {wsr['snippet']}\n\n")
 
     filter_web_search = LLM().generate_answer(
         prompt,
         instructions="Ты фильтруешь итоговые результаты от Google Search API таким образом,"
-                         "что пользователю отображаются краткие ответы (не более 2х предложений) с указанием источника."
-                         "Никаких разных вариантов, строго по количеству передаваемых запросов все делай")
+                     "что пользователю отображаются краткие ответы (не более 2х предложений) с указанием источника."
+                     "Никаких разных вариантов, строго по количеству передаваемых запросов все делай. Отвечай строго на русском языке")
     answer = filter_web_search.output[0].content[0].text
 
     print(answer)
-
