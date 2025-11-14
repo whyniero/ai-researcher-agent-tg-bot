@@ -1,12 +1,16 @@
 import asyncio
+import json
 import os
 
 import asyncpg.exceptions
+import pandas
 import pandas as pd
 
 from app.database import get_pool
 from app.google_api import GoogleSearch
+from app.llm import LLM
 from app.queries.user import User
+
 
 # <script async src="https://cse.google.com/cse.js?cx=80d8361b4bbe24441">
 # </script>
@@ -45,16 +49,84 @@ async def create_tables():
 
 
 # async def main():
-    # await create_tables()
-    # try:
-    #     await User(name="vladik", username="dada").save()
-    # except asyncpg.exceptions.UniqueViolationError as e:
-    #     print(e)
+# await create_tables()
+# try:
+#     await User(name="vladik", username="dada").save()
+# except asyncpg.exceptions.UniqueViolationError as e:
+#     print(e)
 
 
+tools = [
+    {
+        "type": "function",
+        "name": "web_search",
+        "description": "Найди требуемые пользователем ответы на его запросы.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Запрос для поиска в Google поиске.",
+                },
+                "count": {
+                    "type": "int",
+                    "description": "Количество запрашиваемых результатов. От 1 до 1000 включительно.",
+                },
+            },
+            "required": ["query", "count"],
+        },
+    },
+]
 
+
+def web_search(query: str, count: int):
+    search_results = GoogleSearch().get_search_results(query="new york hotels", count=count)
+    return search_results
+
+
+filter_web_search = ""
+results = ""
+web_search_results = None
 
 if __name__ == "__main__":
     # asyncio.run(main())
-    search_results = GoogleSearch().get_search_results(query="new york hotels", count=1)
-    print(search_results[0])
+    user_query: str = input("Поиск: ")
+    input_list = [
+        {"role": "user", "content": user_query}
+    ]
+
+    response = LLM().generate_answer(user_query, tools=tools)
+    input_list += response.output
+
+    for item in response.output:
+        if item.type == "function_call":
+            if item.name == "web_search":
+                args = json.loads(item.arguments)
+                web_search_results = web_search(args["query"], args["count"])
+
+                # 4. Provide function call results to the model
+                input_list.append({
+                    "type": "function_call_output",
+                    "call_id": item.call_id,
+                    "output": json.dumps({
+                        "search_results": [wsr['snippet'] for wsr in web_search_results],
+                    })
+                })
+
+    prompt = ""
+    # df = pandas.DataFrame(web_search_results)
+    # df.to_csv("results.csv", index=False)
+    for wsr in web_search_results:
+        prompt += (f"Title: {wsr['title']}\n"
+                   f"Link: {wsr['link']}\n"
+                   f"Snippet: {wsr['snippet']}\n\n")
+
+    filter_web_search = LLM().generate_answer(
+        prompt,
+        instructions="Ты фильтруешь итоговые результаты от Google Search API таким образом,"
+                         "что пользователю отображаются краткие ответы (не более 2х предложений) с указанием источника."
+                         "Никаких разных вариантов, строго по количеству передаваемых запросов все делай")
+    answer = filter_web_search.output[0].content[0].text
+
+    print(answer)
+

@@ -27,5 +27,5 @@ class GoogleSearch:
         for i in range(1, count + 1):
             response = self._search(query=query, start=i)
             search_results.extend(response.get("items", []))
-        print(search_results)
+        # print(search_results)
         return search_results
